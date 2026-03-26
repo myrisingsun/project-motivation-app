@@ -8,14 +8,28 @@ import ProjectsPage from './pages/ProjectsPage';
 import ParticipationPage from './pages/ParticipationPage';
 import ResultsPage from './pages/ResultsPage';
 import DashboardPage from './pages/DashboardPage';
-import { Settings, Users, FolderKanban, ClipboardList, Calculator, LayoutDashboard } from 'lucide-react';
+import { Settings, Users, FolderKanban, ClipboardList, Calculator, LayoutDashboard, Sun, Moon } from 'lucide-react';
+import { Tabs, TabsList, TabsTab, TabsPanel } from './components/ui/tabs';
+import { ToastProvider, AnchoredToastProvider } from './components/ui/toast';
+import { Button } from './components/ui/button';
 
 const STORAGE_KEY = 'pm-calc-data';
 
 function loadSaved() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Normalize all IDs to numbers (guards against old string-ID data)
+    if (data.participation) {
+      data.participation = data.participation.map(r => ({
+        ...r,
+        empId: +r.empId || 0,
+        projectId: +r.projectId || 0,
+        checkpointId: +r.checkpointId || 0,
+      }));
+    }
+    return data;
   } catch { return null; }
 }
 
@@ -27,6 +41,15 @@ export default function App() {
   const [participation, setParticipation] = useState(saved?.participation || defaultParticipation);
   const [settings, setSettings] = useState(saved?.settings || defaultSettings);
   const [activeTab, setActiveTab] = useState('results');
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('pm-calc-theme') === 'dark'; } catch { return false; }
+  });
+
+  // Apply dark class to <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('pm-calc-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   // Auto-save
   useEffect(() => {
@@ -61,6 +84,21 @@ export default function App() {
     addPart: () => setParticipation(p => [...p, { id: generateId(), empId: employees[0]?.id || 0, projectId: projects[0]?.id || 0, checkpointId: projects[0]?.checkpoints?.[0]?.id || 0, actualDays: 0, period: 'Q1', note: '' }]),
     delPart: (id) => setParticipation(p => p.filter(r => r.id !== id)),
     upPart: (id, f, v) => setParticipation(p => p.map(r => r.id === id ? { ...r, [f]: v } : r)),
+    // Add single employee to project (creates one participation record to be filled in)
+    addEmpToProj: (projId, empId) => {
+      const proj = projects.find(p => p.id === projId);
+      setParticipation(p => [...p, {
+        id: generateId(),
+        empId,
+        projectId: projId,
+        checkpointId: proj?.checkpoints?.[0]?.id || 0,
+        actualDays: 0,
+        period: 'Q1',
+        note: '',
+      }]);
+    },
+    // Remove all participation records for an employee in a project
+    delPartByEmpProj: (empId, projId) => setParticipation(p => p.filter(r => !(r.empId === empId && r.projectId === projId))),
     // Settings
     upSet: (path, val) => setSettings(s => {
       const c = JSON.parse(JSON.stringify(s));
@@ -79,57 +117,57 @@ export default function App() {
     setSettings(defaultSettings);
   }, []);
 
-  const tabs = [
-    { key: 'dashboard', label: 'Дашборд', icon: LayoutDashboard, color: '#0F6E56' },
-    { key: 'employees', label: 'Сотрудники', icon: Users, color: '#1D9E75' },
-    { key: 'projects', label: 'Проекты', icon: FolderKanban, color: '#185FA5' },
-    { key: 'participation', label: 'Участие', icon: ClipboardList, color: '#D85A30' },
-    { key: 'results', label: 'Расчёт', icon: Calculator, color: '#A32D2D' },
-    { key: 'settings', label: 'Настройки', icon: Settings, color: '#534AB7' },
-  ];
-
   const ctx = { employees, projects, participation, settings, calcData, empProjCount, ...crud, resetAll };
 
   return (
+    <ToastProvider>
+    <AnchoredToastProvider>
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 no-print">
+      <header className="bg-background border-b border-border px-4 py-3 no-print">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-800">Проектная мотивация</h1>
-          <span className="text-xs text-gray-400">v1.0 • Данные сохраняются автоматически</span>
+          <h1 className="text-lg font-semibold text-foreground">Проектная мотивация</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">v2.0 • Данные сохраняются автоматически</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Переключить тему"
+              onClick={() => setDarkMode(d => !d)}
+            >
+              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-100 px-4 no-print">
-        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto py-2">
-          {tabs.map(t => {
-            const Icon = t.icon;
-            const active = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${active ? 'text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                style={active ? { background: t.color } : {}}
-              >
-                <Icon size={16} />
-                {t.label}
-              </button>
-            );
-          })}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
+        {/* Navigation */}
+        <div className="bg-background border-b border-border px-4 no-print">
+          <div className="max-w-7xl mx-auto overflow-x-auto">
+            <TabsList variant="underline">
+              <TabsTab value="dashboard"><LayoutDashboard size={16} />Дашборд</TabsTab>
+              <TabsTab value="employees"><Users size={16} />Сотрудники</TabsTab>
+              <TabsTab value="projects"><FolderKanban size={16} />Проекты</TabsTab>
+              <TabsTab value="participation"><ClipboardList size={16} />Участие</TabsTab>
+              <TabsTab value="results"><Calculator size={16} />Расчёт</TabsTab>
+              <TabsTab value="settings"><Settings size={16} />Настройки</TabsTab>
+            </TabsList>
+          </div>
         </div>
-      </nav>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'dashboard' && <DashboardPage {...ctx} />}
-        {activeTab === 'employees' && <EmployeesPage {...ctx} />}
-        {activeTab === 'projects' && <ProjectsPage {...ctx} />}
-        {activeTab === 'participation' && <ParticipationPage {...ctx} />}
-        {activeTab === 'results' && <ResultsPage {...ctx} />}
-        {activeTab === 'settings' && <SettingsPage {...ctx} />}
-      </main>
+        {/* Content */}
+        <main className="max-w-7xl mx-auto w-full px-4 py-6">
+          <TabsPanel value="dashboard"><DashboardPage {...ctx} /></TabsPanel>
+          <TabsPanel value="employees"><EmployeesPage {...ctx} /></TabsPanel>
+          <TabsPanel value="projects"><ProjectsPage {...ctx} /></TabsPanel>
+          <TabsPanel value="participation"><ParticipationPage {...ctx} /></TabsPanel>
+          <TabsPanel value="results"><ResultsPage {...ctx} /></TabsPanel>
+          <TabsPanel value="settings"><SettingsPage {...ctx} /></TabsPanel>
+        </main>
+      </Tabs>
     </div>
+    </AnchoredToastProvider>
+    </ToastProvider>
   );
 }

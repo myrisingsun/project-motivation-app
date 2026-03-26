@@ -2,14 +2,29 @@ import React, { useState } from 'react';
 import { getProjectColor } from '../data/constants';
 import { getProjectCeiling } from '../utils/calculations';
 import { exportToExcel } from '../utils/excelIO';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
+import { toastManager } from '../components/ui/toast';
+import { Tooltip, TooltipTrigger, TooltipPopup, TooltipProvider } from '../components/ui/tooltip';
+import { Card, CardPanel } from '../components/ui/card';
+import { AlertTriangle } from 'lucide-react';
 
+const roleVariant = r => r === 'A' ? 'info' : r === 'BA' ? 'secondary' : 'outline';
+const abcVariant = g => (g === 'A' || g === 'B+') ? 'success' : g === 'B' ? 'secondary' : 'error';
 const fmt = n => Math.round(n).toLocaleString('ru-RU');
 
 const Th = ({ children, w, align }) => (
-  <th style={{ padding: '8px 10px', fontSize: 12, fontWeight: 500, textAlign: align || 'left', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', width: w }}>{children}</th>
+  <th
+    className={`px-2.5 py-2 text-xs font-medium bg-muted border-b whitespace-nowrap ${align === 'right' ? 'text-right' : 'text-left'}`}
+    style={w ? { width: w } : undefined}
+  >{children}</th>
 );
-const Td = ({ children, align, style: sx }) => (
-  <td style={{ padding: '6px 10px', fontSize: 13, borderBottom: '1px solid #f3f4f6', textAlign: align || 'left', verticalAlign: 'middle', ...sx }}>{children}</td>
+const Td = ({ children, align, style: sx, className: cx = '' }) => (
+  <td
+    className={`px-2.5 py-1.5 text-[13px] border-b border-border/40 align-middle ${align === 'right' ? 'text-right' : 'text-left'} ${cx}`}
+    style={sx}
+  >{children}</td>
 );
 
 export default function ResultsPage({ employees, projects, participation, settings, calcData }) {
@@ -18,31 +33,31 @@ export default function ResultsPage({ employees, projects, participation, settin
 
   const PERIODS = payoutMode === 'quarterly' ? ['Q1', 'Q2', 'Q3', 'Q4'] : ['H1', 'H2'];
 
-  // Payout schedule: per employee per period
   const payoutSchedule = {};
   results.forEach(r => {
     if (!payoutSchedule[r.empId]) payoutSchedule[r.empId] = {};
-    const p = payoutMode === 'quarterly' ? r.period : (r.period === 'Q1' || r.period === 'Q2' || r.period === 'H1' ? 'H1' : 'H2');
+    const p = payoutMode === 'quarterly'
+      ? r.period
+      : r.period.startsWith('H') ? r.period : (r.period === 'Q1' || r.period === 'Q2' ? 'H1' : 'H2');
     payoutSchedule[r.empId][p] = (payoutSchedule[r.empId][p] || 0) + r.bonus;
   });
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, color: '#A32D2D' }}>Расчёт премий</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => exportToExcel(results, employees, projects, empTotals, settings)}
-            style={{ padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, cursor: 'pointer', fontWeight: 500, background: '#15803d', color: '#fff' }}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-[17px] font-semibold" style={{ color: '#A32D2D' }}>Расчёт премий</h2>
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => {
+              exportToExcel(results, employees, projects, empTotals, settings);
+              toastManager.add({ title: 'Экспорт готов', description: 'Файл Excel сохранён.', variant: 'success' });
+            }}
           >
             Экспорт Excel
-          </button>
-          <button
-            onClick={() => window.print()}
-            style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, cursor: 'pointer', fontWeight: 500, background: '#fff' }}
-          >
-            Печать
-          </button>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>Печать</Button>
         </div>
       </div>
 
@@ -53,7 +68,6 @@ export default function ResultsPage({ employees, projects, participation, settin
         const col = getProjectColor(pi);
         const pt = projTotals[proj.id] || 0;
 
-        // Group by employee
         const empOrder = [];
         const byEmp = {};
         rows.forEach(r => {
@@ -62,14 +76,18 @@ export default function ResultsPage({ employees, projects, participation, settin
         });
 
         return (
-          <div key={proj.id} style={{ marginBottom: 28 }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div key={proj.id} className="mb-7">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <td colSpan={99} style={{ padding: '10px 12px 6px', fontWeight: 600, fontSize: 14, color: col, borderBottom: `2px solid ${col}` }}>
+                    <td
+                      colSpan={99}
+                      className="px-3 pt-2.5 pb-1.5 font-semibold text-sm"
+                      style={{ color: col, borderBottom: `2px solid ${col}` }}
+                    >
                       {proj.name}
-                      <span style={{ fontWeight: 400, fontSize: 12, color: '#9ca3af', marginLeft: 8 }}>
+                      <span className="font-normal text-xs text-muted-foreground ml-2">
                         ({rows.length} начислений)
                       </span>
                     </td>
@@ -79,7 +97,16 @@ export default function ResultsPage({ employees, projects, participation, settin
                     <Th w="44px">Роль</Th>
                     <Th>Контрольная точка</Th>
                     <Th w="55px" align="right">Вес</Th>
-                    <Th w="70px" align="right">Коэфф.</Th>
+                    <Th w="70px" align="right">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger render={<span className="cursor-help underline decoration-dotted" />}>
+                            Коэфф.
+                          </TooltipTrigger>
+                          <TooltipPopup>Коэффициент участия = факт.дни / план.дни, не более 1.0</TooltipPopup>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Th>
                     {settings.formulaMode !== 'multiplier' && <Th w="70px" align="right">ABC</Th>}
                     <Th w="120px" align="right">Премия</Th>
                     <Th w="60px">Период</Th>
@@ -96,13 +123,13 @@ export default function ResultsPage({ employees, projects, participation, settin
 
                     return empRows.map((r, i) => (
                       <React.Fragment key={`${eId}-${i}`}>
-                        <tr style={exceeded ? { background: '#fff1f1' } : {}}>
+                        <tr className={exceeded ? 'bg-red-50' : ''}>
                           {i === 0
-                            ? <Td style={{ fontWeight: 600, borderBottom: 'none' }}>{r.empName}</Td>
-                            : <Td style={{ borderBottom: 'none', color: 'transparent', fontSize: 1 }}>.</Td>}
+                            ? <Td className="font-semibold border-b-0">{r.empName}</Td>
+                            : <Td className="border-b-0" style={{ color: 'transparent', fontSize: 1 }}>.</Td>}
                           {i === 0
-                            ? <Td style={{ borderBottom: 'none' }}>{r.role}</Td>
-                            : <Td style={{ borderBottom: 'none' }}></Td>}
+                            ? <Td className="border-b-0"><Badge variant={roleVariant(r.role)}>{r.role}</Badge></Td>
+                            : <Td className="border-b-0"></Td>}
                           <Td>{r.cpName}</Td>
                           <Td align="right">{r.weight}%</Td>
                           <Td align="right">{r.pc.toFixed(2)}</Td>
@@ -111,31 +138,32 @@ export default function ResultsPage({ employees, projects, participation, settin
                           )}
                           <Td align="right"><strong>{fmt(r.bonus)}</strong></Td>
                           <Td>{r.period}</Td>
-                          <Td style={{ fontSize: 12, color: '#9ca3af' }}>{r.note}</Td>
+                          <Td className="text-xs text-muted-foreground">{r.note}</Td>
                         </tr>
                         {i === empRows.length - 1 && (
                           <tr>
                             <td
                               colSpan={settings.formulaMode !== 'multiplier' ? 6 : 5}
-                              style={{ padding: '4px 12px', textAlign: 'right', fontSize: 12, fontWeight: 500, color: '#6b7280', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}
+                              className="px-3 py-1 text-right text-xs font-medium text-muted-foreground border-b bg-muted"
                             >
                               Итого {r.empName}:
                             </td>
-                            <td style={{ padding: '4px 12px', textAlign: 'right', fontSize: 13, fontWeight: 600, borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                            <td className="px-3 py-1 text-right text-[13px] font-semibold border-b bg-muted">
                               {fmt(empTotal)}
                             </td>
-                            <td colSpan={2} style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}></td>
+                            <td colSpan={2} className="border-b bg-muted"></td>
                           </tr>
                         )}
                       </React.Fragment>
                     ));
                   })}
                   <tr>
-                    <td colSpan={99} style={{
-                      padding: '8px 12px', textAlign: 'right', fontWeight: 500, fontSize: 13,
-                      borderBottom: `2px solid ${col}44`, background: `${col}0d`, color: col,
-                    }}>
-                      Итого по проекту: <strong style={{ fontSize: 15 }}>{fmt(pt)}</strong>
+                    <td
+                      colSpan={99}
+                      className="px-3 py-2 text-right font-medium text-[13px]"
+                      style={{ borderBottom: `2px solid ${col}44`, background: `${col}0d`, color: col }}
+                    >
+                      Итого по проекту: <strong className="text-[15px]">{fmt(pt)}</strong>
                     </td>
                   </tr>
                 </tbody>
@@ -146,41 +174,35 @@ export default function ResultsPage({ employees, projects, participation, settin
       })}
 
       {/* Grand total */}
-      <div style={{
-        padding: '14px 18px', borderRadius: 8,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: '#f9fafb', border: '1px solid #e5e7eb', marginBottom: 28,
-      }}>
-        <span style={{ fontWeight: 500, fontSize: 16 }}>Общий итог по всем проектам</span>
-        <span style={{ fontWeight: 700, fontSize: 20, color: '#A32D2D' }}>{fmt(grandTotal)}</span>
-      </div>
+      <Card className="mb-7">
+        <CardPanel className="flex justify-between items-center">
+          <span className="font-medium text-base">Общий итог по всем проектам</span>
+          <span className="font-bold text-xl" style={{ color: '#A32D2D' }}>{fmt(grandTotal)}</span>
+        </CardPanel>
+      </Card>
 
       {/* Payout schedule */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, color: '#A32D2D' }}>График выплат</h3>
-          <div style={{ display: 'flex', gap: 6 }}>
+      <div className="mb-7">
+        <div className="flex justify-between items-center mb-2.5">
+          <h3 className="text-[15px] font-semibold" style={{ color: '#A32D2D' }}>График выплат</h3>
+          <div className="flex gap-1.5">
             {[
               { key: 'quarterly', label: 'Квартально' },
               { key: 'biannual', label: 'Полугодично' },
             ].map(m => (
-              <button
+              <Button
                 key={m.key}
+                size="sm"
+                variant={payoutMode === m.key ? 'default' : 'ghost'}
                 onClick={() => setPayoutMode(m.key)}
-                style={{
-                  padding: '4px 12px', borderRadius: 6, border: 'none', fontSize: 12,
-                  cursor: 'pointer', fontWeight: 500,
-                  background: payoutMode === m.key ? '#A32D2D' : '#f3f4f6',
-                  color: payoutMode === m.key ? '#fff' : '#374151',
-                }}
               >
                 {m.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
             <thead>
               <tr>
                 <Th>ФИО</Th>
@@ -197,9 +219,9 @@ export default function ResultsPage({ employees, projects, participation, settin
                 return (
                   <tr key={emp.id}>
                     <Td>{emp.name}</Td>
-                    <Td>{emp.role}</Td>
+                    <Td><Badge variant={roleVariant(emp.role)}>{emp.role}</Badge></Td>
                     {PERIODS.map(p => (
-                      <Td key={p} align="right" style={{ fontSize: 12 }}>
+                      <Td key={p} align="right" className="text-xs">
                         {d[p] ? fmt(d[p]) : '—'}
                       </Td>
                     ))}
@@ -213,28 +235,46 @@ export default function ResultsPage({ employees, projects, participation, settin
       </div>
 
       {/* Employee summary */}
-      <h3 style={{ fontSize: 15, fontWeight: 600, color: '#A32D2D', marginBottom: 10 }}>
+      <h3 className="text-[15px] font-semibold mb-2.5" style={{ color: '#A32D2D' }}>
         Сводка по сотрудникам
       </h3>
-      <div style={{ overflowX: 'auto', marginBottom: 24 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {employees.some(emp => (empTotals[emp.id]?.total || 0) > getProjectCeiling(emp)) && (
+        <Alert variant="error" className="mb-4">
+          <AlertTriangle />
+          <AlertTitle>Превышение проектного потолка</AlertTitle>
+          <AlertDescription>
+            Один или несколько сотрудников получили премию сверх проектной доли годового потолка.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full border-collapse">
           <thead>
-            <tr>
-              <Th>ФИО</Th>
-              <Th w="44px">Роль</Th>
-              <Th w="60px">ABC</Th>
-              {projects.map((p, i) => (
-                <Th key={p.id} w="100px" align="right">
-                  <span style={{ color: getProjectColor(i), fontSize: 11 }}>
-                    {p.name.split('—')[0].trim()}
-                  </span>
+            <TooltipProvider>
+              <tr>
+                <Th>ФИО</Th>
+                <Th w="44px">Роль</Th>
+                <Th w="60px">ABC</Th>
+                {projects.map((p, i) => (
+                  <Th key={p.id} w="100px" align="right">
+                    <span className="text-[11px]" style={{ color: getProjectColor(i) }}>
+                      {p.name.split('—')[0].trim()}
+                    </span>
+                  </Th>
+                ))}
+                <Th w="110px" align="right">Итого</Th>
+                <Th w="130px" align="right">
+                  <Tooltip>
+                    <TooltipTrigger render={<span className="cursor-help underline decoration-dotted" />}>
+                      Потолок (проектн.)
+                    </TooltipTrigger>
+                    <TooltipPopup>PM/BA = оклад × множитель. S = 1/3 от этой суммы</TooltipPopup>
+                  </Tooltip>
                 </Th>
-              ))}
-              <Th w="110px" align="right">Итого</Th>
-              <Th w="130px" align="right">Потолок (проектн.)</Th>
-              <Th w="100px" align="right">Остаток</Th>
-              <Th w="80px">Статус</Th>
-            </tr>
+                <Th w="100px" align="right">Остаток</Th>
+                <Th w="80px">Статус</Th>
+              </tr>
+            </TooltipProvider>
           </thead>
           <tbody>
             {employees.map(emp => {
@@ -242,12 +282,12 @@ export default function ResultsPage({ employees, projects, participation, settin
               const ceil = getProjectCeiling(emp);
               const exc = d.total > ceil;
               return (
-                <tr key={emp.id} style={exc ? { background: '#fff1f1' } : {}}>
+                <tr key={emp.id} className={exc ? 'bg-red-50' : ''}>
                   <Td>{emp.name}</Td>
-                  <Td>{emp.role}</Td>
-                  <Td>{emp.abcGrade}</Td>
+                  <Td><Badge variant={roleVariant(emp.role)}>{emp.role}</Badge></Td>
+                  <Td><Badge variant={abcVariant(emp.abcGrade)}>{emp.abcGrade}</Badge></Td>
                   {projects.map(p => (
-                    <Td key={p.id} align="right" style={{ fontSize: 12 }}>
+                    <Td key={p.id} align="right" className="text-xs">
                       {d.byProj[p.id] ? fmt(d.byProj[p.id]) : '—'}
                     </Td>
                   ))}
@@ -257,13 +297,9 @@ export default function ResultsPage({ employees, projects, participation, settin
                     {fmt(ceil - d.total)}
                   </Td>
                   <Td>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 500,
-                      background: exc ? '#fee2e2' : '#dcfce7',
-                      color: exc ? '#dc2626' : '#15803d',
-                    }}>
+                    <Badge variant={exc ? 'error' : 'success'}>
                       {exc ? 'Превышение!' : 'ОК'}
-                    </span>
+                    </Badge>
                   </Td>
                 </tr>
               );
@@ -273,7 +309,7 @@ export default function ResultsPage({ employees, projects, participation, settin
       </div>
 
       {/* Formula explanation */}
-      <div style={{ padding: 14, borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb', fontSize: 12, color: '#6b7280', lineHeight: 1.7 }}>
+      <div className="p-3.5 rounded-lg bg-muted/50 border text-xs text-muted-foreground leading-relaxed">
         <strong>Формула ({settings.formulaMode === 'multiplier' ? 'множитель' : 'компонентная'}):</strong>{' '}
         {settings.formulaMode === 'multiplier'
           ? 'Премия = Проектный потолок × Вес КТ (%) × Коэфф. участия × ABC коэфф.'
@@ -282,12 +318,16 @@ export default function ResultsPage({ employees, projects, participation, settin
         <strong>Проектная доля:</strong> PM/BA = 100% годового потолка | S = 1/3 годового потолка
         <br />
         <strong>Ограничение:</strong> Сумма всех премий ≤ Годовой потолок (N окладов)
-        {results.some(r => r.abcC === 0) && (
-          <div style={{ marginTop: 6, color: '#dc2626' }}>
-            ⚠ Некоторые сотрудники имеют ABC коэфф. = 0 (B−, C или новички) — их премии равны нулю.
-          </div>
-        )}
       </div>
+      {results.some(r => r.abcC === 0) && (
+        <Alert variant="warning" className="mt-3">
+          <AlertTriangle />
+          <AlertTitle>Нулевые коэффициенты ABC</AlertTitle>
+          <AlertDescription>
+            Некоторые сотрудники имеют ABC коэфф. = 0 (B−, C или новички) — их премии равны нулю.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }

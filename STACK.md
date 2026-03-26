@@ -1,57 +1,33 @@
-# Технический стек
+# Tech Stack
 
-## Runtime & Build
+## Core
 
-| Инструмент | Версия | Назначение |
-|-----------|--------|-----------|
-| Node.js | ≥ 18 | Среда выполнения |
-| Vite | ^6.0 | Сборщик, dev-сервер (HMR) |
+| Layer | Library | Notes |
+|-------|---------|-------|
+| UI framework | React 18 | Hooks, functional components only |
+| Build tool | Vite 6 | Dev server + production build (`dist/`) |
+| Styling | Tailwind CSS v4 | Utility-first; config via CSS, no `tailwind.config.js` |
 
-## Frontend
+## Component Library
 
-| Библиотека | Версия | Назначение |
-|-----------|--------|-----------|
-| React | ^18.3 | UI-фреймворк |
-| React DOM | ^18.3 | Рендеринг в браузер |
-| React Router DOM | ^6.28 | Клиентская маршрутизация |
+| Package | Role |
+|---------|------|
+| **coss ui** | Styled component library with shadcn-like DX. Installed per-component via `npx shadcn@latest add @coss/<name>`. |
+| **@base-ui/react** | Headless primitives powering coss ui — handles accessibility, keyboard nav, focus management, ARIA. |
 
-## UI & Стили
+### coss ui components in use
 
-| Инструмент | Версия | Назначение |
-|-----------|--------|-----------|
-| Tailwind CSS | ^3.4 | Утилитарные CSS-классы |
-| PostCSS | ^8.4 | Обработка CSS |
-| Autoprefixer | ^10.4 | Вендорные префиксы |
-| lucide-react | ^0.460 | Иконки (SVG-компоненты) |
+`Accordion` · `Alert` · `AlertDialog` · `Badge` · `Button` · `Card` · `Checkbox` · `Dialog` ·
+`Fieldset` · `Input` · `Label` · `NumberField` · `RadioGroup` · `Select` · `Separator` ·
+`Switch` · `Table` · `Tabs` · `Toast` · `Tooltip`
 
-## Данные & Бизнес-логика
+Component source files live in `src/components/ui/`. Each is a thin styled wrapper around a
+Base UI primitive. **Do not edit these files directly** — re-add via CLI to pick up updates.
 
-| Инструмент | Версия | Назначение |
-|-----------|--------|-----------|
-| localStorage | — | Персистентность данных (браузер) |
-| Recharts | ^2.15 | Графики (BarChart, PieChart) |
-| SheetJS (xlsx) | ^0.18 | Импорт/экспорт Excel |
+## Data & Visualization
 
-## Dev-зависимости
-
-| Инструмент | Версия | Назначение |
-|-----------|--------|-----------|
-| @vitejs/plugin-react | ^4.3 | Поддержка JSX / Fast Refresh |
-| @types/react | ^18.3 | TypeScript-типы для React |
-
-## Хранилище данных
-
-Приложение **не имеет бэкенда**. Все данные хранятся в `localStorage` браузера:
-
-- `pm-calc-data` — основное состояние (сотрудники, проекты, участие, настройки)
-- `project-motivation-snapshots` — снимки (версионирование)
-- `project-motivation-log` — журнал изменений
-
-## Деплой
-
-Статический SPA — подходит любой CDN/хостинг:
-
-- Vercel
-- Netlify
-- GitHub Pages
-- Любой nginx/Apache с отдачей `dist/`
+| Package | Role |
+|---------|------|
+| **recharts** | `BarChart`, `PieChart`, `ResponsiveContainer` — used in DashboardPage |
+| **xlsx (SheetJS)** | Excel import (employees) and full report export — see `src/utils/excelIO.js` |
+| **lucide-react** | Icon set — used inside coss triggers, page headers, alert icons |

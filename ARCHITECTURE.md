@@ -1,238 +1,117 @@
-# Архитектура приложения «Проектная мотивация»
+# Architecture
 
-## Стек
-
-| Слой | Технология |
-|------|-----------|
-| UI | React 18 + Vite 6 |
-| Стили | Tailwind CSS |
-| Иконки | lucide-react |
-| Графики | Recharts |
-| Excel | SheetJS (xlsx) |
-| Хранилище | localStorage (браузер) |
-
----
-
-## Где хранятся данные
-
-**Все данные хранятся в `localStorage` браузера.** Серверной части нет — приложение полностью клиентское (SPA).
-
-### Ключи localStorage
-
-| Ключ | Что хранит |
-|------|-----------|
-| `pm-calc-data` | Основное состояние: сотрудники, проекты, участие, настройки |
-| `project-motivation-snapshots` | Снимки состояния (версионирование) |
-| `project-motivation-log` | Журнал изменений (последние 200 записей) |
-
-> **Важно:** данные привязаны к конкретному браузеру и домену. При очистке localStorage или другом браузере данные не сохранятся. Для переноса — экспорт в Excel.
-
-### Структура `pm-calc-data`
-
-```json
-{
-  "employees": [...],
-  "projects": [...],
-  "participation": [...],
-  "settings": {...}
-}
-```
-
-### Авто-сохранение
-
-В `App.jsx` стоит debounce 500 мс: при любом изменении состояния данные сериализуются в JSON и записываются в `localStorage`.
-
-```
-Изменение состояния → useEffect → setTimeout 500ms → localStorage.setItem()
-```
-
----
-
-## Структура файлов
+## Directory Structure
 
 ```
 src/
-├── App.jsx                # Оболочка: шапка, навигация, всё состояние, авто-сохранение
-├── main.jsx               # Точка входа React
-├── index.css              # Tailwind-директивы + стили для печати
+├── App.jsx              # Shell: ToastProvider wrap, Tabs nav, state, auto-save (500ms debounce)
+├── main.jsx             # React entry point
+├── index.css            # Tailwind v4 directives + @media print styles
+│
+├── components/
+│   └── ui/              # coss ui component files (do not edit manually)
+│       ├── accordion.jsx
+│       ├── alert.jsx
+│       ├── alert-dialog.jsx
+│       ├── badge.jsx
+│       ├── button.jsx
+│       ├── card.jsx
+│       ├── checkbox.jsx
+│       ├── dialog.jsx
+│       ├── fieldset.jsx
+│       ├── input.jsx
+│       ├── label.jsx
+│       ├── number-field.jsx
+│       ├── radio-group.jsx
+│       ├── select.jsx
+│       ├── separator.jsx
+│       ├── switch.jsx
+│       ├── table.jsx
+│       ├── tabs.jsx
+│       ├── toast.jsx
+│       └── tooltip.jsx
 │
 ├── data/
-│   ├── constants.js       # Роли, вехи (STD_MILESTONES), оценки ABC,
-│   │                      # таблица шкалы (SCALE), цвета проектов
-│   └── defaults.js        # Начальные данные: 7 сотрудников, 3 проекта,
-│                          # записи участия, настройки по умолчанию
+│   ├── constants.js     # ROLES, ABC_GRADES, STD_MILESTONES, SCALE, getProjectColor()
+│   └── defaults.js      # Default data: employees, projects, participation, settings
 │
 ├── hooks/
-│   └── useStorage.js      # Утилиты localStorage: снимки, журнал изменений
-│                          # (в App.jsx используется напрямую, не через этот хук)
+│   └── use-media-query.js
 │
-├── utils/
-│   ├── calculations.js    # Движок расчёта бонусов (оба режима формулы),
-│   │                      # логика ABC, определение новичков
-│   ├── excelIO.js         # Импорт сотрудников из Excel, экспорт отчёта
-│   └── helpers.js         # generateId(), форматирование чисел
+├── lib/
+│   └── utils.js         # cn() helper (clsx + tailwind-merge)
 │
-└── pages/                 # По одной странице на каждую вкладку
-    ├── DashboardPage.jsx  # Графики: распределение фонда, загрузка, потолки
-    ├── EmployeesPage.jsx  # Таблица сотрудников, импорт Excel
-    ├── ProjectsPage.jsx   # Проекты, контрольные точки, веса
-    ├── ParticipationPage.jsx # Участие по проектам и вехам
-    ├── ResultsPage.jsx    # Результаты расчёта, график выплат, экспорт
-    └── SettingsPage.jsx   # Режим формулы, лимиты, коэффициенты ABC
+├── pages/               # One file per tab — all receive full ctx from App.jsx
+│   ├── DashboardPage.jsx    # Recharts: PieChart (fund), BarChart (quarters + ceiling)
+│   ├── EmployeesPage.jsx    # Employee table, Excel import, ABC badges
+│   ├── ProjectsPage.jsx     # Project cards with checkpoint tables
+│   ├── ParticipationPage.jsx# Grouped by project, checkpoint filter pills
+│   ├── ResultsPage.jsx      # Calc results, payout schedule, employee summary, export
+│   └── SettingsPage.jsx     # Accordion sections, RadioGroup formula, Switch toggles, NumberField coeffs
+│
+└── utils/
+    ├── calculations.js  # calculateAll(), getEmpProjectCounts(), getProjectCeiling(), isNewcomer()
+    ├── excelIO.js       # importEmployeesFromExcel(), exportToExcel() via SheetJS
+    └── helpers.js       # generateId(), number formatting
 ```
 
----
+## State Management
 
-## Управление состоянием
-
-Всё состояние живёт в `App.jsx` в четырёх `useState`:
+All application state lives in `App.jsx` via `useState`. No external state library.
 
 ```
-employees[]       — сотрудники
-projects[]        — проекты (вложены checkpoints[])
-participation[]   — записи участия (связь сотрудник × проект × веха)
-settings{}        — настройки приложения
+employees[]  projects[]  participation[]  settings{}
+      └─────────────────────────┴──────── calcData (useMemo → calculateAll)
+                                           empProjCount (useMemo)
 ```
 
-Производные данные вычисляются через `useMemo` и **не хранятся**:
+State is passed down as props to every page. CRUD helpers are memoized in a `crud` object and
+spread onto each page via `{...ctx}`.
+
+**Auto-save**: a `useEffect` with 500ms debounce writes to `localStorage` on every state change.
+
+## components/ui/ — coss ui Layer
+
+All UI primitives come from **coss ui**, built on **@base-ui/react**. Key patterns:
+
+### Naming conventions
+- `*Popup` — the floating/overlay content (Dialog, Select, Tooltip, etc.)
+- `*Panel` — the scrollable body section inside a popup or card
+- `*Trigger` — the element that opens an overlay; uses `render={<Button />}` composition
+- `*Close` — closes the parent overlay; also uses `render` prop for custom buttons
+
+### Controlled vs uncontrolled
+- Overlays (Dialog, AlertDialog): use `open` + `onOpenChange` when the trigger is detached
+  (e.g., triggered by an async operation like file import)
+- Tabs: `value` + `onValueChange` — always controlled (state in App.jsx)
+- NumberField: `value` + `onValueChange`
+- Switch: `checked` + `onCheckedChange`
+- RadioGroup: `value` + `onValueChange`
+
+### Toast setup
+`ToastProvider` + `AnchoredToastProvider` wrap the entire app in `App.jsx`.
+Toasts are fired imperatively: `toastManager.add({ title, description, variant })`.
+
+### Inline style policy
+Keep `style={{}}` only for **dynamic data-driven values** that cannot be expressed as static
+Tailwind classes — project colors from `getProjectColor()`, coefficient colors, chart colors.
+All layout, spacing, typography, and static colors → Tailwind className.
+
+## Two Formula Modes
+
+Controlled by `settings.formulaMode` ('multiplier' | 'component').
+
+**Multiplier**: `Bonus = Ceiling × CPWeight × ParticipationCoeff × AbcCoeff`
+
+**Component**: `Bonus = Ceiling × (Milestones×W1 + Budget×W2 + ABC×W3) / 100`
+(W1+W2+W3 must equal 100; Budget goes through `SCALE` lookup table)
+
+## Data Flow: Calculations
 
 ```
-calcData       = calculateAll(employees, projects, participation, settings)
-empProjCount   = getEmpProjectCounts(participation)
+employees + projects + participation + settings
+        ↓
+   calculateAll()  →  { results[], empTotals{}, projTotals{}, grandTotal, resultsByProj{} }
+        ↓
+   ResultsPage (tables) + DashboardPage (charts)
 ```
-
-Все CRUD-функции собраны в объект `crud` и передаются страницам через props.
-
----
-
-## Модели данных
-
-### Сотрудник (Employee)
-```js
-{
-  id: number,
-  name: string,
-  role: 'A' | 'BA' | 'S',        // PM | Бизнес-аналитик | Функц. исполнитель
-  salary: number,                 // месячный оклад, ₽
-  ceilingMultiplier: number,      // множитель для расчёта потолка (обычно 2)
-  abcGrade: 'A'|'B+'|'B'|'B-'|'C',
-  hireDate: string,               // YYYY-MM-DD, для определения новичка
-}
-```
-
-### Проект (Project)
-```js
-{
-  id: number,
-  name: string,
-  budget: number,        // плановый бюджет (для компонентного режима)
-  budgetFact: number,    // факт/план, доля (напр. 0.97 = 97%)
-  checkpoints: [
-    { id, name, weight: number, plannedDays: number }
-  ]
-}
-```
-
-### Участие (Participation)
-```js
-{
-  id: number,
-  empId: number,         // → Employee.id
-  projectId: number,     // → Project.id
-  checkpointId: number,  // → Checkpoint.id
-  actualDays: number,    // фактически отработанные дни
-  period: 'Q1'|'Q2'|'Q3'|'Q4'|'H1'|'H2',
-  note: string,
-}
-```
-
-### Настройки (Settings)
-```js
-{
-  formulaMode: 'multiplier' | 'component',
-  componentWeights: { milestones: 40, budget: 40, abc: 20 },
-  useRoleWeights: boolean,
-  projectLimitEnabled: boolean,
-  projectLimitMax: 3,
-  projectLimitExceptions: { [empId]: boolean },
-  abcCoeffs: { 'A': 1.2, 'B+': 1.1, 'B': 1.0, 'B-': 0, 'C': 0 },
-  newcomerEnabled: boolean,
-  newcomerMonths: 6,
-  newcomerAbcCoeffs: { 'A': 1.0, 'B+': 1.0, 'B': 0, 'B-': 0, 'C': 0 },
-}
-```
-
----
-
-## Расчёт бонусов
-
-### Режим «Мультипликатор»
-```
-Потолок = Оклад × Мультипликатор
-  (для роли S: Потолок / 3)
-
-Бонус = Потолок × (Вес_вехи / 100) × (Факт_дни / План_дни) × Коэфф_ABC
-```
-
-### Режим «Компонентный»
-```
-КоэффБюджет = по таблице SCALE(budgetFact):
-  < 80%      → 0
-  80–95%     → 0.8
-  95–105%    → 1.0
-  105–120%   → 1.2
-  > 120%     → 1.5
-
-Бонус = Потолок × (
-  (Вехи × W_вехи + КоэффБюджет × W_бюджет + КоэффABC × W_abc)
-  / (W_вехи + W_бюджет + W_abc)
-)
-```
-
-### Логика новичка
-Если `(сегодня − hireDate) < newcomerMonths` — применяются `newcomerAbcCoeffs` вместо стандартных `abcCoeffs`.
-
----
-
-## Поток данных
-
-```
-localStorage
-    ↓ (при загрузке)
-App.jsx [useState]
-    ↓ (props)
-Pages ──→ calculations.js (useMemo, без сохранения)
-    ↓ (события пользователя)
-CRUD-функции → setEmployees / setProjects / ...
-    ↓ (useEffect, debounce 500ms)
-localStorage
-```
-
----
-
-## Excel
-
-| Операция | Функция | Страница |
-|----------|---------|---------|
-| Импорт сотрудников | `importEmployeesFromExcel()` | EmployeesPage |
-| Экспорт полного отчёта | `exportToExcel()` | ResultsPage |
-
-Используется библиотека SheetJS (`xlsx`). Файлы читаются/пишутся на клиенте, без загрузки на сервер.
-
----
-
-## Печать / PDF
-
-- Стили `@media print` в `index.css`
-- Элементы с классом `.no-print` скрываются при печати
-- Кнопка «Печать» вызывает `window.print()`
-
----
-
-## Деплой
-
-Приложение — статический SPA. Сборка:
-```bash
-npm run build   # → dist/
-```
-Папку `dist/` можно разместить на Vercel, Netlify или любом статическом хостинге.

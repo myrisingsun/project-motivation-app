@@ -29,9 +29,12 @@ export function calculateAll(employees, projects, participation, settings) {
   const cwSum = cw.milestones + cw.budget + cw.abc;
 
   participation.forEach(part => {
-    const emp = employees.find(e => e.id === part.empId);
-    const proj = projects.find(p => p.id === part.projectId);
-    const cp = proj?.checkpoints?.find(c => c.id === part.checkpointId);
+    // eslint-disable-next-line eqeqeq
+    const emp = employees.find(e => e.id == part.empId);
+    // eslint-disable-next-line eqeqeq
+    const proj = projects.find(p => p.id == part.projectId);
+    // eslint-disable-next-line eqeqeq
+    const cp = proj?.checkpoints?.find(c => c.id == part.checkpointId);
     if (!emp || !proj || !cp) return;
 
     const pCeil = getProjectCeiling(emp);
