@@ -113,7 +113,7 @@ export default function EmployeesPage({ employees, empProjCount, settings, upEmp
               : (settings.abcCoeffs[emp.abcGrade] ?? 1);
 
             return (
-              <TableRow key={emp.id} className={overLimit ? 'bg-red-50 hover:bg-red-50' : ''}>
+              <TableRow key={emp.id} className={overLimit ? 'bg-red-50 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/40' : ''}>
                 <TableCell>
                   <Input
                     type="text"

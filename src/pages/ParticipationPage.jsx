@@ -130,7 +130,7 @@ export default function ParticipationPage({ employees, projects, participation, 
                       const incomplete = !part.empId || !part.checkpointId;
 
                       return (
-                        <tr key={part.id} className={incomplete ? 'bg-amber-50' : ''}>
+                        <tr key={part.id} className={incomplete ? 'bg-amber-50 dark:bg-amber-950/40' : ''}>
                           <Td>
                             <select
                               className="w-full h-7 rounded-md border border-input bg-background text-[13px] px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"

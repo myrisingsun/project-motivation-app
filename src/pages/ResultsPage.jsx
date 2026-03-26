@@ -123,7 +123,7 @@ export default function ResultsPage({ employees, projects, participation, settin
 
                     return empRows.map((r, i) => (
                       <React.Fragment key={`${eId}-${i}`}>
-                        <tr className={exceeded ? 'bg-red-50' : ''}>
+                        <tr className={exceeded ? 'bg-red-50 dark:bg-red-950/40' : ''}>
                           {i === 0
                             ? <Td className="font-semibold border-b-0">{r.empName}</Td>
                             : <Td className="border-b-0" style={{ color: 'transparent', fontSize: 1 }}>.</Td>}
@@ -282,7 +282,7 @@ export default function ResultsPage({ employees, projects, participation, settin
               const ceil = getProjectCeiling(emp);
               const exc = d.total > ceil;
               return (
-                <tr key={emp.id} className={exc ? 'bg-red-50' : ''}>
+                <tr key={emp.id} className={exc ? 'bg-red-50 dark:bg-red-950/40' : ''}>
                   <Td>{emp.name}</Td>
                   <Td><Badge variant={roleVariant(emp.role)}>{emp.role}</Badge></Td>
                   <Td><Badge variant={abcVariant(emp.abcGrade)}>{emp.abcGrade}</Badge></Td>
